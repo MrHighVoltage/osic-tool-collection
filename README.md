@@ -1,4 +1,4 @@
 # osic-tool-collection
 
 ## ngspice:
-Python tool for parallelisation of ngspice using standard SPICE parameters (.param)
+Example schematic which uses a python tool for parallelisation of ngspice

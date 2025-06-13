@@ -1,0 +1,81 @@
+** sch_path: /foss/designs/rfdic40/xschem/paral/inv_tb.sch
+**.subckt inv_tb
+VDD1 vdd GND 1.5
+XM1 inv_out inv_in GND GND sg13_lv_nmos w={m1_w_val} l={l_val} ng=1 m=1
+XM2 inv_out inv_in vdd vdd sg13_lv_pmos w={m2_w_val} l={l_val} ng=1 m=1
+XM3 GND inv_out GND GND sg13_lv_nmos w=0.15u l=0.13u ng=1 m=1
+VIN1 in GND dc 0.75 ac 1 sin(0.75 1m 100Meg)
+R1 inv_out inv_in {r1_val} m=1
+C1 inv_in in {c1_val} m=1
+**** begin user architecture code
+
+
+** IHP models
+.lib cornerMOSlv.lib mos_tt
+.lib cornerMOShv.lib mos_tt
+.lib cornerHBT.lib hbt_typ
+.lib cornerRES.lib res_typ
+.lib cornerCAP.lib cap_typ
+
+
+
+
+
+.param temp=27
+.param c1_val=1p
+.param r1_val=100Meg
+.param m1_w_val=0.15u
+.param m2_w_val=0.15u
+.param l_val=0.13u
+.include inv_tb.save
+.options warn=1
+
+.control
+set num_threads=1
+save all
+op
+write inv_tb.raw
+set appendwrite
+ac dec 1001 1 100G
+write inv_tb.raw
+let gain_lin = abs(inv_out)
+let gain_dB = vdb(inv_out)
+meas ac gain_passband_dB max gain_dB
+let gain_fc_dB = gain_passband_dB-3
+meas ac fc_l when gain_dB = gain_fc_dB
+meas ac fc_u when gain_dB = gain_fc_dB cross=last
+let GBW = gain_lin[0] * (fc_u-fc_l)
+print gain_passband_dB
+print fc_l
+print fc_u
+print GBW
+plot gain_dB xlimit 1 100G ylabel 'small signal gain'
+write inv_tb.raw
+tran 10p 30n
+write inv_tb.raw
+plot inv_in inv_out
+.endc
+
+
+
+
+**nr_workers=50
+**sort_results_index=0
+
+**parameter_sweep_begin
+**m1_w_val=Auto:0.5u:10:10u
+**m2_w_val=Auto:0.5u:10:10u
+**parameter_sweep_end
+
+**results_plot_begin
+**gain_passband_dB
+**fc_l
+**fc_u
+**GBW
+**results_plot_end
+
+
+**** end user architecture code
+**.ends
+.GLOBAL GND
+.end
