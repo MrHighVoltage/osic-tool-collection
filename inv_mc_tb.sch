@@ -4,16 +4,13 @@ K {}
 V {}
 S {}
 E {}
-T {used to run ngspice simulation in parallel} 1440 -1000 0 0 0.3 0.3 {layer=11}
+T {used to run ngspice mc simulation in parallel} 1440 -1000 0 0 0.3 0.3 {layer=11}
 T {used to check OP, AC and TRAN} 920 -1000 0 0 0.3 0.3 {layer=11}
 T {Ctrl-Click to execute launcher} 170 -910 0 0 0.3 0.3 {layer=11}
 T {.save file can be created with IHP->"Create FET and BIP .save file"} 170 -810 0 0 0.3 0.3 {layer=11}
 T {each printed value will be saved in csv file} 1710 -510 0 0 0.3 0.3 {layer=11}
-T {possible parameter sweep types:
-Auto:Begin:TotalPoints:End
-Lin:Begin:StepSize:End
-Dec:Begin:PointsPerDecade:End
-Log:Begin:TotalPoints:End} 1780 -300 0 0 0.3 0.3 {layer=11}
+T {_stat ... with staticstial modelling (process) without mismatch!} 150 -750 0 0 0.3 0.3 {layer=11}
+T {set num_threads to 1 for small circuits} 1680 -760 0 0 0.3 0.3 {layer=11}
 N 180 -270 180 -250 {lab=vdd}
 N 180 -190 180 -170 {lab=GND}
 N 550 -400 610 -400 {lab=vdd}
@@ -75,11 +72,11 @@ name=TT_MODELS
 only_toplevel=true
 value="
 ** IHP models
-.lib cornerMOSlv.lib mos_tt
-.lib cornerMOShv.lib mos_tt
-.lib cornerHBT.lib hbt_typ
-.lib cornerRES.lib res_typ
-.lib cornerCAP.lib cap_typ
+.lib cornerMOSlv.lib mos_tt_stat
+.lib cornerMOShv.lib mos_tt_stat
+.lib cornerHBT.lib hbt_typ_stat
+.lib cornerRES.lib res_typ_stat
+.lib cornerCAP.lib cap_typ_stat
 "
 spice_ignore=false
       }
@@ -88,22 +85,17 @@ simulator=ngspice
 only_toplevel=false 
 value="
 .param temp=27
-.param c1_val=1p
-.param r1_val=100Meg
-.param m1_w_val=0.15u
-.param m2_w_val=0.15u
-.param l_val=0.13u
-.include inv_tb.save
+.include inv_mc_tb.save
 .options warn=1
 
 .control
 set num_threads=1
 save all
 op
-write inv_tb.raw
+write inv_mc_tb.raw
 set appendwrite
 ac dec 1001 1 100G
-write inv_tb.raw
+write inv_mc_tb.raw
 let gain_lin = abs(inv_out)
 let gain_dB = vdb(inv_out)
 meas ac gain_passband_dB max gain_dB
@@ -116,14 +108,13 @@ print fc_l
 print fc_u
 print GBW
 plot gain_dB xlimit 1 100G ylabel 'small signal gain'
-write inv_tb.raw
 tran 10p 30n
-write inv_tb.raw
+write inv_mc_tb.raw
 plot inv_in inv_out
 .endc
 "
 spice_ignore=true}
-C {simulator_commands_shown.sym} 1435 -915 0 0 {name=SWEEP_SIM
+C {simulator_commands_shown.sym} 1435 -915 0 0 {name=MC_SIM
 simulator=ngspice
 only_toplevel=false 
 value="
@@ -158,16 +149,16 @@ echo results_sweep_end
 }
 C {gnd.sym} 180 -170 0 0 {name=l1 lab=GND}
 C {sg13g2_pr/sg13_lv_nmos.sym} 530 -300 0 0 {name=M1
-l=\{l_val\}
-w=\{m1_w_val\}
+l=0.13u
+w=0.15u
 ng=1
 m=1
 model=sg13_lv_nmos
 spiceprefix=X
 }
 C {sg13g2_pr/sg13_lv_pmos.sym} 530 -400 0 0 {name=M2
-l=\{l_val\}
-w=\{m2_w_val\}
+l=0.13u
+w=0.15u
 ng=1
 m=1
 model=sg13_lv_pmos
@@ -189,15 +180,10 @@ C {lab_wire.sym} 750 -350 0 1 {name=p4 sig_type=std_logic lab=inv_out}
 C {devices/vsource.sym} 310 -220 0 0 {name=VIN1 value="dc 0.75 ac 1 sin(0.75 1m 100Meg)"}
 C {gnd.sym} 310 -170 0 0 {name=l4 lab=GND}
 C {res.sym} 500 -350 1 0 {name=R1
-value=\{r1_val\}
+value=100Meg
 footprint=1206
 device=resistor
 m=1}
-C {capa.sym} 370 -350 1 0 {name=C1
-m=1
-value=\{c1_val\}
-footprint=1206
-device="ceramic capacitor"}
 C {lab_wire.sym} 310 -350 0 0 {name=p5 sig_type=std_logic lab=in}
 C {devices/launcher.sym} 230 -830 0 0 {name=h1
 descr="OP annotate" 
@@ -205,16 +191,11 @@ tclcommand="xschem annotate_op"
 }
 C {sg13g2_pr/annotate_fet_params.sym} 630 -570 0 0 {name=annot1 ref=M2}
 C {sg13g2_pr/annotate_fet_params.sym} 640 -200 0 0 {name=annot2 ref=M1}
-C {code_shown.sym} 1450 -360 0 0 {name=SWEEP_SETTINGS
+C {code_shown.sym} 1450 -360 0 0 {name=MC_SETTINGS
 only_toplevel=false
 value="
 **nr_workers=50
-**sort_results_index=0
-
-**parameter_sweep_begin
-**m1_w_val=Auto:0.5u:10:10u
-**m2_w_val=Auto:0.5u:10:10u
-**parameter_sweep_end
+**nr_mc_sims=1000
 
 **results_plot_begin
 **gain_passband_dB
@@ -222,7 +203,8 @@ value="
 **fc_u
 **GBW
 **results_plot_end
-"}
+"
+}
 C {launcher.sym} 1500 -65 0 0 {name=h2
 descr=SimulatePARALLEL
 tclcommand="
@@ -245,5 +227,11 @@ write_data [save_params] $netlist_dir/[file rootname [file tail [xschem get curr
 
 # run netlist and simulation
 xschem netlist
-python3 ngspice_parallel_sim.py [file tail [xschem get current_name]]
+python3 ngspice_parallel_mc.py [file tail [xschem get current_name]]
 "}
+C {sg13g2_pr/cap_cmim.sym} 370 -350 1 0 {name=C1
+model=cap_cmim
+w=10.0e-6
+l=10.0e-6
+m=7
+spiceprefix=X}

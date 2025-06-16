@@ -38,19 +38,21 @@ if not os.path.exists(netlist_path_name):
     sys.exit(1)
 with open(netlist_path_name, "r") as f:
     netlist = f.read()
-    
+
 os.makedirs(results_dir, exist_ok=True)
 if os.path.exists(final_result_file):
     os.remove(final_result_file)
+if os.path.exists(final_result_file_sorted):
+    os.remove(final_result_file_sorted)
 
-#get num_workers from netlist
+#get nr_workers from netlist
 match = re.search(r"^\s*(\*\*nr_workers)\s*=\s*(.+)$", netlist, re.MULTILINE)
 if match:
-    num_workers = int(match.group(2).strip())
+    nr_workers = int(match.group(2).strip())
 else:
-    print("Info: **num_workers statement not found, setting it to 10.")
-    num_workers = 10
-    
+    print("Info: **nr_workers statement not found, setting it to 10.")
+    nr_workers = 10
+
 #get sort_results_index from netlist
 match = re.search(r"^\s*(\*\*sort_results_index)\s*=\s*(.+)$", netlist, re.MULTILINE)
 if match:
@@ -169,14 +171,14 @@ def run_worker(args):
 if __name__ == "__main__":
     start_time = time.time()
    
-    chunks = chunkify(param_value_combinations, num_workers)
+    chunks = chunkify(param_value_combinations, nr_workers)
     worker_inputs = [(chunk, i) for i, chunk in enumerate(chunks) if chunk]
-    with Pool(num_workers) as pool:
+    with Pool(nr_workers) as pool:
         pool.map(run_worker, worker_inputs)
 
     # merge results of workers into a single file
     with open(final_result_file, "w") as out:
-        for i in range(num_workers):
+        for i in range(nr_workers):
             part_file = os.path.join(results_dir, f"{netlist_name}_worker_{i}_results.txt")
             if os.path.exists(part_file):
                 with open(part_file, "r") as part:
@@ -193,13 +195,13 @@ if __name__ == "__main__":
         data = list(reader)
         
     data.sort(key=lambda x: float(x[sort_results_index]), reverse=False)
-    
+
     # create new file with sorted data
     with open(final_result_file_sorted, mode='w', newline='') as csvfile:
         writer = csv.writer(csvfile, delimiter=';')
         writer.writerow(header)
         writer.writerows(data)
-    
+
     # plot results
     if len(results_plot_list) > 0:
         # make dictionary with results
