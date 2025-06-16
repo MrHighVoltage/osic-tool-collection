@@ -17,7 +17,7 @@ plot_begin_tag = "**results_plot_begin"
 plot_end_tag = "**results_plot_end"
 
 simulations_dir = "./simulations"
-results_dir = "./results"
+results_dir = os.path.join(simulations_dir, "results")
 
 if len(sys.argv) < 2:
     print("Error: Incorrect number of arguments.")
