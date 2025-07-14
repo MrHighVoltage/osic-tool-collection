@@ -293,41 +293,58 @@ if __name__ == "__main__":
                 axs[i].minorticks_on()
                 x_raw = np.array(results_dict[param_name_list[0]])
                 y_raw = np.array(results_dict[param_name_list[1]])
-                z_raw = np.array(results_dict[var.lower()])
-                x_unique = np.unique(x_raw)
-                y_unique = np.unique(y_raw)
-                expected_size = len(x_unique) * len(y_unique)
-                if z_raw.size != expected_size:
-                    print(f"Error: Expected {expected_size} data points but got {z_raw.size}.")
-                    print(f"Hint: This could be due to missing or failed simulations.")
-                    print(f"Hint: Missing data will be filled with interpolations")
-                    x_grid, y_grid = np.meshgrid(x_unique, y_unique)
-                    points = np.column_stack((x_raw, y_raw))
-                    Z = griddata(points, z_raw, (x_grid, y_grid), method='linear')
-                    if np.isnan(Z).any():
-                        Z = griddata(points, z_raw, (x_grid, y_grid), method='nearest')
-                else:
-                    Z = z_raw.reshape(len(y_unique), len(x_unique))
+                z_data = np.array(results_dict[var.lower()])
+                x = np.unique(x_raw)
+                y = np.unique(y_raw)
+                expected_size = len(x) * len(y)
+                if z_data.size != expected_size:
+                    print(f"Error with variable {var}: Expected {expected_size} data points but got {z_data.size}.")
+                    print(f"Hint: This could be due to missing or failed simulations. Interpolating misssing points!")
+                    x_grid, y_grid = np.meshgrid(x,y, indexing='ij')
+                    full_points = np.column_stack((x_grid.ravel(), y_grid.ravel()))
+                    # Known points
+                    known_points = np.column_stack((x_raw, y_raw))
+                    # Match known points to full grid
+                    known_set = set(map(tuple, known_points))
+                    # Identify missing points in the full grid
+                    missing_mask = np.array([tuple(p) not in known_set for p in full_points])
+                    missing_points = full_points[missing_mask]
+                    # Interpolate only at missing points (linear, fallback nearest)
+                    interpolated_linear = griddata(known_points, z_data, missing_points, method='linear')
+                    interpolated_nearest = griddata(known_points, z_data, missing_points, method='nearest')
+                    interpolated_missing = np.where(np.isnan(interpolated_linear), interpolated_nearest, interpolated_linear)
+                    # Prepare final results array
+                    final_results = np.empty(full_points.shape[0])
+                    final_results[:] = np.nan
+                    # Fill known points with original results
+                    for j, point in enumerate(full_points):
+                        if tuple(point) in known_set:
+                            idx = np.where((x_raw == point[0]) & (y_raw == point[1]))[0][0]
+                            final_results[j] = z_data[idx]
+                    final_results[missing_mask] = interpolated_missing
+                    z_data = final_results
+                Z = z_data.reshape(len(x), len(y)).T # shape: (len(x), len(y))
                 if i in results_plot_contour_index:
                     axs[i].set_ylabel(f"{param_name_list[1]}")
-                    X, Y = np.meshgrid(x_unique, y_unique)
+                    X, Y = np.meshgrid(x,y)
                     contour = axs[i].contourf(X, Y, Z, levels=10, cmap='viridis')
                     cbar = fig.colorbar(contour, ax=axs[i])
                     cbar.set_label(var)
                 else:
                     axs[i].set_ylabel(var)
+                    Z = Z.T
                     if i in results_plot_logx_index and i in results_plot_logy_index:
-                        for l, yl in enumerate(y_unique):
-                            axs[i].loglog(x_unique, Z[l, :], label=f"{yl:.2g}")
+                        for l, yl in enumerate(y):
+                            axs[i].loglog(x, Z[:, l], label=f"{yl:.2g}")
                     elif i in results_plot_logx_index:
-                        for l, yl in enumerate(y_unique):
-                            axs[i].semilogx(x_unique, Z[l, :], label=f"{yl:.2g}")
+                        for l, yl in enumerate(y):
+                            axs[i].semilogx(x, Z[:, l], label=f"{yl:.2g}")
                     elif i in results_plot_logy_index:
-                        for l, yl in enumerate(y_unique):
-                            axs[i].semilogy(x_unique, Z[l, :], label=f"{yl:.2g}")
+                        for l, yl in enumerate(y):
+                            axs[i].semilogy(x, Z[:, l], label=f"{yl:.2g}")
                     else:
-                        for l, yl in enumerate(y_unique):
-                            axs[i].plot(x_unique, Z[l, :], label=f"{yl:.2g}")
+                        for l, yl in enumerate(y):
+                            axs[i].plot(x, Z[:, l], label=f"{yl:.2g}")
                     axs[i].legend(title=param_name_list[1], loc='upper right')
                 i = i + 1
             # Hide unused subplots

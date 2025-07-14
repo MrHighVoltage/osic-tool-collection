@@ -199,11 +199,11 @@ if __name__ == "__main__":
             axs[i].set_xticks(ticks)
             i = i + 1
 
-            # Hide unused subplots
-            for j in range(i, len(axs)):
-                axs[j].axis('off')
-            plt.tight_layout()
-            plt.show()
+        # Hide unused subplots
+        for j in range(i, len(axs)):
+            axs[j].axis('off')
+        plt.tight_layout()
+        plt.show()
         
     end_time = time.time()
     runtime = end_time - start_time
