@@ -9,6 +9,7 @@ import time
 from quantiphy import Quantity
 import sys
 import matplotlib.pyplot as plt
+from scipy.interpolate import griddata
 import math
 
 #begin/end tags
@@ -46,46 +47,46 @@ if os.path.exists(final_result_file_sorted):
     os.remove(final_result_file_sorted)
 
 #get nr_workers from netlist
-match = re.search(r"^\s*(\*\*nr_workers)\s*=\s*(.+)$", netlist, re.MULTILINE)
+match = re.search(r"^[ \t]*\*\*nr_workers[ \t]*=[ \t]*(\d+)[ \t]*$", netlist, re.MULTILINE)
 if match:
-    nr_workers = int(match.group(2).strip())
+    nr_workers = int(match.group(1).strip())
 else:
-    print("Info: **nr_workers statement not found, setting it to 10.")
+    print("Info: **nr_workers statement not found or erroneous, setting it to 10.")
     nr_workers = 10
 
 #get sort_results_index from netlist
-match = re.search(r"^\s*(\*\*sort_results_index)\s*=\s*(.+)$", netlist, re.MULTILINE)
+match = re.search(r"^[ \t]*\*\*sort_results_index[ \t]*=[ \t]*(\d+)[ \t]*$", netlist, re.MULTILINE)
 if match:
-    sort_results_index = int(match.group(2).strip())
+    sort_results_index = int(match.group(1).strip())
 else:
-    print("Info: **sort_results_index statement not found, setting it to index 0.")
+    print("Info: **sort_results_index statement not found or erroneous, setting it to index 0.")
     sort_results_index = 0
 
 #get results_plot_contour_index from netlist
-match = re.search(r"^\s*(\*\*results_plot_contour_index)\s*=\s*(.+)$", netlist, re.MULTILINE)
+match = re.search(r"^[ \t]*\*\*results_plot_contour_index[ \t]*=[ \t]*(\d+(?:,[ \t]*\d+)*)[ \t]*$", netlist, re.MULTILINE)
 if match:
-    results_plot_contour_index_str = match.group(2).strip()
+    results_plot_contour_index_str = match.group(1).strip()
     results_plot_contour_index = [int(i.strip()) for i in results_plot_contour_index_str.split(',') if i.strip().isdigit()]
 else:
-    print("Info: **results_plot_contour_index statement not found, setting it to be empty.")
+    print("Info: **results_plot_contour_index statement not found or erroneous, setting it to be empty.")
     results_plot_contour_index = []
 
 #get results_plot_logx_index from netlist
-match = re.search(r"^\s*(\*\*results_plot_logx_index)\s*=\s*(.+)$", netlist, re.MULTILINE)
+match = re.search(r"^[ \t]*\*\*results_plot_logx_index[ \t]*=[ \t]*(\d+(?:,[ \t]*\d+)*)[ \t]*$", netlist, re.MULTILINE)
 if match:
-    results_plot_logx_index_str = match.group(2).strip()
+    results_plot_logx_index_str = match.group(1).strip()
     results_plot_logx_index = [int(i.strip()) for i in results_plot_logx_index_str.split(',') if i.strip().isdigit()]
 else:
-    print("Info: **results_plot_logx_index statement not found, setting it to be empty.")
+    print("Info: **results_plot_logx_index statement not found or erroneous, setting it to be empty.")
     results_plot_logx_index = []
 
 #get results_plot_logy_index from netlist
-match = re.search(r"^\s*(\*\*results_plot_logy_index)\s*=\s*(.+)$", netlist, re.MULTILINE)
+match = re.search(r"^[ \t]*\*\*results_plot_logy_index[ \t]*=[ \t]*(\d+(?:,[ \t]*\d+)*)[ \t]*$", netlist, re.MULTILINE)
 if match:
-    results_plot_logy_index_str = match.group(2).strip()
+    results_plot_logy_index_str = match.group(1).strip()
     results_plot_logy_index = [int(i.strip()) for i in results_plot_logy_index_str.split(',') if i.strip().isdigit()]
 else:
-    print("Info: **results_plot_logy_index statement not found, setting it to be empty.")
+    print("Info: **results_plot_logy_index statement not found or erroneous, setting it to be empty.")
     results_plot_logy_index = []
 
 #get sweep parameters from netlist
@@ -115,7 +116,7 @@ if match:
         if list_type == "auto":
            sweep_list = np.linspace(Quantity(values_splited[1]), Quantity(values_splited[3]), int(values_splited[2]))
         elif list_type == "lin":
-            sweep_list = np.arange(Quantity(values_splited[1]), Quantity(values_splited[3]) + Quantity(values_splited[2]), Quantity(values_splited[2]))
+            sweep_list = np.arange(Quantity(values_splited[1]), (Quantity(values_splited[3]) + Quantity(values_splited[2])*0.1), Quantity(values_splited[2]))
         elif list_type == "dec":
             total_points = int(int(values_splited[2]) * (np.log10(Quantity(values_splited[3]))-np.log10(Quantity(values_splited[1])))) + 1
             sweep_list =  np.logspace(np.log10(Quantity(values_splited[1])), np.log10(Quantity(values_splited[3])), total_points)
@@ -184,15 +185,19 @@ def run_worker(args):
                             result[result_name.strip()] = float(result_value.strip())
                     # write in csv file
                     if writeHeadings:
-                        writer.writerow(param_name_list + list(result.keys()))   
+                        writer.writerow(param_name_list + list(result.keys()))
                         writeHeadings = False
                     writer.writerow([str(x) for x in param_set] + list(result.values()))
                 else:
-                    writer.writerow([param_name_list, 'N/A', 'ERROR in receiving results'])
+                    if writeHeadings:
+                        writer.writerow(param_name_list)
+                        writeHeadings = False
+                    writer.writerow([",".join(str(x) for x in param_set), 'N/A', 'ERROR in receiving results'])
             except subprocess.CalledProcessError:
                 if writeHeadings:
-                    writer.writerow([param_name_list, 'N/A', 'ERROR'])
-                writer.writerow([param_name_list, 'N/A', 'ERROR in process handling'])
+                    writer.writerow(param_name_list)
+                    writeHeadings = False
+                writer.writerow([",".join(str(x) for x in param_set), 'N/A', 'ERROR in process handling'])
             os.remove(cir_file)
 
 if __name__ == "__main__":
@@ -214,6 +219,10 @@ if __name__ == "__main__":
                         out.writelines([line for line in lines if "ERROR" not in line])
                     else: # skip the header
                         out.writelines([line for line in lines[1:] if "ERROR" not in line])
+                    error_lines = [line for line in lines[1:] if "ERROR" in line]
+                    if error_lines:
+                        print(f"Errors found in worker {i} results:")
+                        print("".join(error_lines))
                 os.remove(part_file)
             
     with open(final_result_file, newline='') as csvfile:
@@ -282,30 +291,43 @@ if __name__ == "__main__":
                 axs[i].set_xlabel(f"{param_name_list[0]}")              
                 axs[i].grid(True, which='both', linestyle='--', alpha=0.5)
                 axs[i].minorticks_on()
-                x = np.unique(np.array(results_dict[param_name_list[0]]))
-                y = np.unique(np.array(results_dict[param_name_list[1]]))
-                Z = np.array(results_dict[var.lower()]).reshape(len(x), len(y)).T # shape: (len(y), len(x))
+                x_raw = np.array(results_dict[param_name_list[0]])
+                y_raw = np.array(results_dict[param_name_list[1]])
+                z_raw = np.array(results_dict[var.lower()])
+                x_unique = np.unique(x_raw)
+                y_unique = np.unique(y_raw)
+                expected_size = len(x_unique) * len(y_unique)
+                if z_raw.size != expected_size:
+                    print(f"Error: Expected {expected_size} data points but got {z_raw.size}.")
+                    print(f"Hint: This could be due to missing or failed simulations.")
+                    print(f"Hint: Missing data will be filled with interpolations")
+                    x_grid, y_grid = np.meshgrid(x_unique, y_unique)
+                    points = np.column_stack((x_raw, y_raw))
+                    Z = griddata(points, z_raw, (x_grid, y_grid), method='linear')
+                    if np.isnan(Z).any():
+                        Z = griddata(points, z_raw, (x_grid, y_grid), method='nearest')
+                else:
+                    Z = z_raw.reshape(len(y_unique), len(x_unique))
                 if i in results_plot_contour_index:
                     axs[i].set_ylabel(f"{param_name_list[1]}")
-                    X, Y = np.meshgrid(x,y)
+                    X, Y = np.meshgrid(x_unique, y_unique)
                     contour = axs[i].contourf(X, Y, Z, levels=10, cmap='viridis')
                     cbar = fig.colorbar(contour, ax=axs[i])
                     cbar.set_label(var)
                 else:
                     axs[i].set_ylabel(var)
-                    Z = Z.T
                     if i in results_plot_logx_index and i in results_plot_logy_index:
-                        for l, yl in enumerate(y):
-                            axs[i].loglog(x, Z[:, l], label=f"{yl:.2g}")
+                        for l, yl in enumerate(y_unique):
+                            axs[i].loglog(x_unique, Z[l, :], label=f"{yl:.2g}")
                     elif i in results_plot_logx_index:
-                        for l, yl in enumerate(y):
-                            axs[i].semilogx(x, Z[:, l], label=f"{yl:.2g}")
+                        for l, yl in enumerate(y_unique):
+                            axs[i].semilogx(x_unique, Z[l, :], label=f"{yl:.2g}")
                     elif i in results_plot_logy_index:
-                        for l, yl in enumerate(y):
-                            axs[i].semilogy(x, Z[:, l], label=f"{yl:.2g}")
+                        for l, yl in enumerate(y_unique):
+                            axs[i].semilogy(x_unique, Z[l, :], label=f"{yl:.2g}")
                     else:
-                        for l, yl in enumerate(y):
-                            axs[i].plot(x, Z[:, l], label=f"{yl:.2g}")
+                        for l, yl in enumerate(y_unique):
+                            axs[i].plot(x_unique, Z[l, :], label=f"{yl:.2g}")
                     axs[i].legend(title=param_name_list[1], loc='upper right')
                 i = i + 1
             # Hide unused subplots
