@@ -265,6 +265,11 @@ if __name__ == "__main__":
         i = 0
         if len(param_name_list) == 1:
             for var in results_plot_list:
+                actual_size = len(results_dict[var])
+                expected_size = len(next(iter(param_list.values())))
+                if actual_size != expected_size:
+                    print(f"Error with variable {var}: Expected {expected_size} data points but got {actual_size}.")
+                    print(f"Hint: This could be due to missing or failed simulations.")
                 axs[i].set_title(var)
                 axs[i].grid(True, which='both', linestyle='--', linewidth=0.5)
                 axs[i].minorticks_on()
