@@ -16,6 +16,8 @@ Strg + Left click on SimulatePARALLEL in schematic to start run!
 Example schematic for parallelisation of parameter sweeps with ngspice. IHP-SG13G2 PDK is used in this example.
 ### ngspice_parallel_sweep.py
 Python tool for parallelisation of parameter sweeps with ngspice
+### plot_sweep_results.py
+Python tool to plot the results of the parameter sweeps of ngspice_parallel_sweep.py
 
 ![Parameter Sweep Schematic](./img/param_sweep_schem.jpg)
 ![Parameter Sweep Results](./img/param_sweep_res.jpg)
@@ -26,6 +28,8 @@ Strg + Left click on SimulatePARALLEL in schematic to start run!
 Example schematic for parallelisation of Monte-Carlo simulations with ngspice IHP-SG13G2 PDK is used in this example.
 ### ngspice_parallel_mc.py
 Python tool for parallelisation of Monte-Carlo simulations with ngspice
+### plot_sweep_results.py
+Python tool to plot the results of the Monte-Carlo simulations of ngspice_parallel_mc.py
 
 ![Monte-Carlo Simulation Schematic](./img/mc_sim_schem.jpg)
 ![Monte-Carlo Simulation Results](./img/mc_sim_res.jpg)
