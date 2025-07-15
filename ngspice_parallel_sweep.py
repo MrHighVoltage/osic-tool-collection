@@ -11,6 +11,7 @@ import sys
 import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
 import math
+import pandas as pd
 
 #begin/end tags
 parameter_begin_tag = "**parameter_sweep_begin"
@@ -224,35 +225,14 @@ if __name__ == "__main__":
                         print(f"Errors found in worker {i} results:")
                         print("".join(error_lines))
                 os.remove(part_file)
-            
-    with open(final_result_file, newline='') as csvfile:
-        reader = csv.reader(csvfile, delimiter=';')
-        header = next(reader)
-        data = list(reader)
-        
-    data.sort(key=lambda x: float(x[sort_results_index]), reverse=False)
 
-    # create new file with sorted data
-    with open(final_result_file_sorted, mode='w', newline='') as csvfile:
-        writer = csv.writer(csvfile, delimiter=';')
-        writer.writerow(header)
-        writer.writerows(data)
+    df = pd.read_csv(final_result_file, delimiter=';')
+    df_sorted = df.sort_values(by=df.columns[sort_results_index], ascending=True)
+    df_sorted.to_csv(final_result_file_sorted, sep=';', index=False)
 
     # plot results
     if len(results_plot_list) > 0:
-        # make dictionary with results
-        results_dict = {}
-        with open(final_result_file_sorted, mode='r', newline='') as csvfile:
-            reader = csv.DictReader(csvfile, delimiter=';')
-    
-            # Initialize dictionary with keys from the header
-            for header in reader.fieldnames:
-                results_dict[header] = []
-
-            # Fill the dictionary
-            for row in reader:
-                for header in reader.fieldnames:
-                    results_dict[header].append(float(row[header]))
+        df_sorted = df.sort_values(by=param_name_list)
 
         # Set the number of columns for subplot grid
         n_cols = 2  # Change this to 1, 2, 3, etc.
@@ -265,7 +245,7 @@ if __name__ == "__main__":
         i = 0
         if len(param_name_list) == 1:
             for var in results_plot_list:
-                actual_size = len(results_dict[var])
+                actual_size = len(df_sorted[var])
                 expected_size = len(next(iter(param_list.values())))
                 if actual_size != expected_size:
                     print(f"Error with variable {var}: Expected {expected_size} data points but got {actual_size}.")
@@ -277,13 +257,13 @@ if __name__ == "__main__":
                 axs[i].set_ylabel(f"{var}")
                 var = var.lower()
                 if i in results_plot_logx_index and i in results_plot_logy_index:
-                    axs[i].loglog(results_dict[param_name_list[0]], results_dict[var])
+                    axs[i].loglog(df_sorted[param_name_list[0]], df_sorted[var])
                 elif i in results_plot_logx_index:
-                    axs[i].semilogx(results_dict[param_name_list[0]], results_dict[var])
+                    axs[i].semilogx(df_sorted[param_name_list[0]], df_sorted[var])
                 elif i in results_plot_logy_index:
-                    axs[i].semilogy(results_dict[param_name_list[0]], results_dict[var])
+                    axs[i].semilogy(df_sorted[param_name_list[0]], df_sorted[var])
                 else:
-                    axs[i].plot(results_dict[param_name_list[0]], results_dict[var])
+                    axs[i].plot(df_sorted[param_name_list[0]], df_sorted[var])
                 i = i + 1
             # Hide unused subplots
             for j in range(i, len(axs)):
@@ -296,9 +276,9 @@ if __name__ == "__main__":
                 axs[i].set_xlabel(f"{param_name_list[0]}")              
                 axs[i].grid(True, which='both', linestyle='--', alpha=0.5)
                 axs[i].minorticks_on()
-                x_raw = np.array(results_dict[param_name_list[0]])
-                y_raw = np.array(results_dict[param_name_list[1]])
-                z_data = np.array(results_dict[var.lower()])
+                x_raw = np.array(df_sorted[param_name_list[0]])
+                y_raw = np.array(df_sorted[param_name_list[1]])
+                z_data = np.array(df_sorted[var.lower()])
                 x = np.unique(x_raw)
                 y = np.unique(y_raw)
                 expected_size = len(x) * len(y)
