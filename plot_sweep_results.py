@@ -5,6 +5,7 @@ import math
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from scipy.interpolate import interp1d
 
 simulations_dir = "./simulations"
 results_dir = os.path.join(simulations_dir, "results")
@@ -66,18 +67,41 @@ if len(results_plot_list) > 0:
             axs[i].set_xlabel(f"{param_name_list[0]}")              
             axs[i].grid(True, which='both', linestyle='--', alpha=0.5)
             axs[i].minorticks_on()
-            x = np.unique(np.array(df_sorted[param_name_list[0]]))
-            y = np.unique(np.array(df_sorted[param_name_list[1]]))
-            Z = np.array(df_sorted[var.lower()]).reshape(len(x), len(y)).T # shape: (len(y), len(x))
+            x_raw = np.array(df_sorted[param_name_list[0]])
+            y_raw = np.array(df_sorted[param_name_list[1]])
+            z_raw = np.array(df_sorted[var.lower()])
+            x = np.unique(x_raw)
+            y = np.unique(y_raw)
+            expected_size = len(x) * len(y)
+            if z_raw.size != expected_size:
+                print(f"Error with variable {var}: Expected {expected_size} data points but got {z_raw.size}.")
+                print("Hint: This could be due to missing or failed simulations. Interpolating missing points curve-by-curve.")
+                Z = np.full((len(x), len(y)), np.nan)
+                for yi_index, yi in enumerate(y):
+                    mask = (y_raw == yi)
+                    xi_vals = x_raw[mask]
+                    zi_vals = z_raw[mask]
+                    if len(xi_vals) < 2:
+                        print(f"Skipping interpolation at y={yi:.3g}: Not enough points.")
+                        continue
+                    try:
+                        interp_fn = interp1d(xi_vals, zi_vals, kind='linear', bounds_error=False, fill_value=np.nan)
+                        zi_interp = interp_fn(x)
+                    except Exception as e:
+                        print(f"Interpolation failed at y={yi:.3g}: {e}")
+                        zi_interp = np.full_like(x, np.nan)
+                    Z[:, yi_index] = zi_interp
+            else:
+                Z = z_raw.reshape(len(x), len(y))
+            Z_plot = Z.T  # shape (len(y), len(x))
             if i in results_plot_contour_index:
                 axs[i].set_ylabel(f"{param_name_list[1]}")
-                X, Y = np.meshgrid(x,y)
-                contour = axs[i].contourf(X, Y, Z, levels=10, cmap='viridis')
+                X, Y = np.meshgrid(x, y)
+                contour = axs[i].contourf(X, Y, Z_plot, levels=10, cmap='viridis')
                 cbar = fig.colorbar(contour, ax=axs[i])
                 cbar.set_label(var)
             else:
                 axs[i].set_ylabel(var)
-                Z = Z.T
                 if i in results_plot_logx_index and i in results_plot_logy_index:
                     for l, yl in enumerate(y):
                         axs[i].loglog(x, Z[:, l], label=f"{yl:.2g}")
