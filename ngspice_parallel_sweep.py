@@ -52,8 +52,13 @@ match = re.search(r"^[ \t]*\*\*nr_workers[ \t]*=[ \t]*(\d+)[ \t]*$", netlist, re
 if match:
     nr_workers = int(match.group(1).strip())
 else:
-    print("Info: **nr_workers statement not found or erroneous, setting it to 10.")
-    nr_workers = 10
+    print("Info: **nr_workers statement not found or erroneous, setting it to 0/automatic.")
+    nr_workers = 0
+
+# Defaulting number of jobs to the number of cores available in the system.
+if nr_workers <= 0:
+    nr_workers = os.cpu_count()
+
 
 #get sort_results_index from netlist
 match = re.search(r"^[ \t]*\*\*sort_results_index[ \t]*=[ \t]*(\d+)[ \t]*$", netlist, re.MULTILINE)
